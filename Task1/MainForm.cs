@@ -3,6 +3,8 @@ using System.Windows.Forms;
 using Microsoft.VisualBasic.FileIO;
 using System.Collections.Generic;
 using System.Data.SqlClient;
+using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 
 namespace Task1
 {
@@ -16,7 +18,11 @@ namespace Task1
             ReadCSV();
             LoadData();
         }
-        public void ReadCSV()///read data from .csv
+        public async void ReadCSV()
+        {
+            await Task.Run(() => ReadCSVAsync());
+        }
+        public void ReadCSVAsync()///read data from .csv
         {
             using (TextFieldParser textFieldParser = new TextFieldParser(@"People.csv"))
             {
@@ -33,8 +39,12 @@ namespace Task1
                 }
             }
             WriteToSql();
-        }    
-        public void WriteToSql()///database entry
+        }
+        public async void WriteToSql()
+        {
+            await Task.Run(() => WriteToSqlAsync());
+        }
+        public void WriteToSqlAsync()///database entry
         {
             using (ApplicationContext db = new ApplicationContext())
             {
@@ -45,7 +55,13 @@ namespace Task1
                 }
             }
         }
-        private void LoadData()///data loading in dataGridView
+        public async void LoadData()
+        {
+            List<string[]> data = await Task.Run(() => LoadDataAsync());
+            foreach (string[] s in data)
+                dataGridViewMain.Rows.Add(s);
+        }
+        private List<string[]> LoadDataAsync()///data loading in dataGridView
         {
             string connectionString = "Data Source= .\\SQLEXPRESS;Initial Catalog=People;Integrated Security=True;";
             SqlConnection sqlConnection = new SqlConnection(connectionString);
@@ -53,7 +69,9 @@ namespace Task1
             string query = "SELECT * FROM People ORDER BY Id";//request for selection and sorting by key
             SqlCommand sqlCommand = new SqlCommand(query, sqlConnection);
             SqlDataReader sqlDataReader = sqlCommand.ExecuteReader();
-            
+            Regex regex = new Regex(@"(0[1 - 9] | [12][0 - 9] | [3][01])[/.](0[1 - 9] | 1[0 - 2])[/.](19 | 20)dd");
+            Match match;
+
             while (sqlDataReader.Read())
             {
                 data.Add(new string[7]);
@@ -64,12 +82,12 @@ namespace Task1
                 data[data.Count - 1][4] = sqlDataReader[4].ToString();
                 data[data.Count - 1][5] = sqlDataReader[5].ToString();
                 data[data.Count - 1][6] = sqlDataReader[6].ToString();
+                match = regex.Match(data[data.Count - 1][1]);
+                if (!match.Success) data[data.Count - 1][1] = null;
             }
             sqlDataReader.Close();
             sqlConnection.Close();
-
-            foreach (string[] s in data)
-                dataGridViewMain.Rows.Add(s);
+            return data;
         }
         private void Button1_Click(object sender, EventArgs e)///pressing the button for export
         {
